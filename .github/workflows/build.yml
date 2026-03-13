@@ -1,0 +1,50 @@
+name: Build
+
+on:
+  push:
+    paths:
+      - '.github/workflows/build.yml'
+      - 'app/**'
+      - 'gradle/**'
+      - '*.gradle'
+      - 'gradle.properties'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches/
+            ~/.gradle/wrapper/dists/
+          key: ${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: Grant Gradle Permission
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: |
+          ./gradlew assemble
+          echo "version=$(grep versionName ./app/build.gradle | awk '{print $2}' | tr -d \")" >> $GITHUB_ENV
+          echo "commit=$(echo ${{ github.sha }} | cut -c 1-7)" >> $GITHUB_ENV
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: APKSignReader(v${{ env.version }}@${{ env.commit }})
+          path: app/build/outputs/apk/**/app-*.apk
